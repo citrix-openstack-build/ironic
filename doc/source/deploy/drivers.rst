@@ -114,3 +114,11 @@ CIMC driver
   :maxdepth: 1
 
   ../drivers/cimc
+
+XenServer ssh driver
+--------------------
+
+.. toctree::
+  :maxdepth: 1
+
+  ../drivers/xenserver
