@@ -185,6 +185,10 @@ class SSHValidateParametersTestCase(db_base.DbTestCase):
         boot_map = ssh._get_boot_device_map('vbox')
         self.assertEqual('net', boot_map[boot_devices.PXE])
 
+    def test__get_boot_device_map_xenserver(self):
+        boot_map = ssh._get_boot_device_map('xenserver')
+        self.assertEqual('n', boot_map[boot_devices.PXE])
+
     def test__get_boot_device_map_exception(self):
         self.assertRaises(exception.InvalidParameterValue,
                           ssh._get_boot_device_map,
@@ -939,6 +943,25 @@ class SSHDriverTestCase(db_base.DbTestCase):
                         'qemu:///system dumpxml %s | awk \'/boot dev=/ '
                         '{ gsub( ".*dev=" Q, "" ); gsub( Q ".*", "" ); '
                         'print; }\' Q="\'" RS="[<>]" | head -1') % fake_name
+        mock_exc.assert_called_once_with(mock.ANY, expected_cmd)
+
+    @mock.patch.object(ssh, '_get_connection', autospec=True)
+    @mock.patch.object(ssh, '_get_hosts_name_for_node', autospec=True)
+    @mock.patch.object(ssh, '_ssh_execute', autospec=True)
+    def test_management_interface_get_boot_device_xenserver(self, mock_exc,
+                                                            mock_h,
+                                                            mock_get_conn):
+        fake_name = 'fake-name'
+        mock_h.return_value = fake_name
+        mock_exc.return_value = ('n', '')
+        mock_get_conn.return_value = self.sshclient
+        with task_manager.acquire(self.context, self.node.uuid) as task:
+            task.node['driver_info']['ssh_virt_type'] = 'xenserver'
+            result = self.driver.management.get_boot_device(task)
+            self.assertEqual(boot_devices.PXE, result['boot_device'])
+        expected_cmd = ('LC_ALL=C /opt/xensource/bin/xe vm-param-get '
+                        'uuid=%s --param-name=HVM-boot-params '
+                        'param-key=order | cut -b 1') % fake_name
         mock_exc.assert_called_once_with(mock.ANY, expected_cmd)
 
     @mock.patch.object(ssh, '_get_connection', autospec=True)
